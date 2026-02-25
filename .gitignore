@@ -10,6 +10,9 @@ TODOs.md
 .idea
 .web-extension-id
 yarn-error.log
+yarn.lock
+lerna-debug.log
+.codebuddy/plans/*
 
 /packages/*/lib
 .amo.env.json

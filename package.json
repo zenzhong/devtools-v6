@@ -20,12 +20,12 @@
     "node": ">=8.10"
   },
   "scripts": {
-    "dev:vue2": "concurrently \"cd packages/shell-dev-vue2 && yarn dev\" \"cd packages/shell-host && yarn dev\"",
-    "dev:vue3": "concurrently \"cd packages/shell-dev-vue3 && yarn dev\" \"cd packages/shell-host && yarn dev\"",
+    "dev:vue2": "concurrently \"cd packages/shell-dev-vue2 && pnpm dev\" \"cd packages/shell-host && pnpm dev\"",
+    "dev:vue3": "concurrently \"cd packages/shell-dev-vue3 && pnpm dev\" \"cd packages/shell-host && pnpm dev\"",
     "dev:chrome": "cd packages/shell-chrome && webpack --watch",
     "dev:chrome:prod": "cd packages/shell-chrome && cross-env NODE_ENV=production webpack --watch",
     "dev:firefox": "cd packages/shell-firefox && webpack --watch",
-    "dev:electron": "cd packages/shell-electron && npm run dev",
+    "dev:electron": "cd packages/shell-electron && pnpm run dev",
     "build": "lerna run build",
     "build:watch": "lerna run build --scope @vue-devtools/app-backend* --scope @vue-devtools/shared-* --scope @vue/devtools-api && lerna run build:watch --stream --no-sort --concurrency 99",
     "lint": "eslint .",
@@ -69,8 +69,12 @@
     "vue-loader": "^17.2.2",
     "webpack-dev-server": "^4.15.1"
   },
-  "resolutions": {
-    "cypress": "=3.4.1",
-    "webpack-dev-server": "^4.15.1"
+  "pnpm": {
+    "overrides": {
+      "@vue/compiler-sfc": "3.3.4",
+      "cypress": "=3.4.1",
+      "vue-loader": "17.2.2",
+      "webpack-dev-server": "^4.15.1"
+    }
   }
 }

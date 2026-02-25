@@ -6,8 +6,8 @@
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {
-    "build": "rimraf lib && yarn ts",
-    "build:watch": "yarn ts -w",
+    "build": "rimraf lib && pnpm ts",
+    "build:watch": "pnpm ts -w",
     "ts": "tsc -p tsconfig.json -d -outDir lib"
   },
   "dependencies": {

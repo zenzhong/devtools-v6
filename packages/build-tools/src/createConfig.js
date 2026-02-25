@@ -1,8 +1,15 @@
+const path = require('node:path')
 const webpack = require('webpack')
 const { mergeWithRules } = require('webpack-merge')
 const FriendlyErrorsPlugin = require('friendly-errors-webpack-plugin')
 const { VueLoaderPlugin } = require('vue-loader')
 const MonacoEditorPlugin = require('monaco-editor-webpack-plugin')
+
+const workspaceRoot = path.resolve(__dirname, '..', '..')
+
+function resolveWorkspacePath(pkgDir, subPath) {
+  return path.join(workspaceRoot, pkgDir, subPath)
+}
 
 exports.createConfig = (config, target = { chrome: 52, firefox: 48 }) => {
   const mode = process.env.NODE_ENV === 'production' ? 'production' : 'development'
@@ -13,8 +20,10 @@ exports.createConfig = (config, target = { chrome: 52, firefox: 48 }) => {
     resolve: {
       extensions: ['.js', '.ts', '.vue'],
       alias: {
-        '@front': '@vue-devtools/app-frontend/src',
-        '@back': '@vue-devtools/app-backend-core/lib',
+        '@front': resolveWorkspacePath('app-frontend', 'src'),
+        '@back': resolveWorkspacePath('app-backend-core', 'lib'),
+        '@vue-devtools/shared-utils': resolveWorkspacePath('shared-utils', 'lib'),
+        '@vue-devtools/app-backend-api': resolveWorkspacePath('app-backend-api', 'lib'),
         'vue': require.resolve('vue/dist/vue.esm-bundler.js'),
       },
       // symlinks: false,
@@ -39,7 +48,7 @@ exports.createConfig = (config, target = { chrome: 52, firefox: 48 }) => {
         },
         {
           test: /\.vue$/,
-          loader: 'vue-loader',
+          loader: require.resolve('vue-loader'),
           options: {
             compilerOptions: {
               preserveWhitespace: false,

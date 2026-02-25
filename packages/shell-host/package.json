@@ -12,6 +12,7 @@
     "vue": "^3.3.4"
   },
   "devDependencies": {
+    "@vue-devtools/build-tools": "^0.0.0",
     "cross-env": "^5.2.0",
     "webpack": "^5.90.1",
     "webpack-cli": "^5.1.4"

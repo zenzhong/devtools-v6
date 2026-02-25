@@ -17,12 +17,11 @@ export function getDevtoolsGlobalHook(): any {
 }
 
 export function getTarget(): GlobalTarget {
-  // @ts-expect-error navigator and windows are not available in all environments
   return (typeof navigator !== 'undefined' && typeof window !== 'undefined')
-    ? window
+    ? window as GlobalTarget & Window
     : typeof globalThis !== 'undefined'
-      ? globalThis
-      : {}
+      ? globalThis as GlobalTarget & typeof globalThis
+      : {} as GlobalTarget
 }
 
 export const isProxyAvailable = typeof Proxy === 'function'

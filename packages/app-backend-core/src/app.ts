@@ -12,8 +12,8 @@ import { JobQueue } from './util/queue'
 import { scan } from './legacy/scan'
 import { addBuiltinLayers, removeLayersForApp } from './timeline'
 import { availableBackends, getBackend } from './backend'
-import { hook } from './global-hook.js'
-import { sendComponentTreeData, sendSelectedComponentData } from './component.js'
+import { hook } from './global-hook'
+import { sendComponentTreeData, sendSelectedComponentData } from './component'
 
 const jobs = new JobQueue()
 

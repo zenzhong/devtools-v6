@@ -6,6 +6,7 @@
   "dependencies": {
     "@babel/core": "^7.16.0",
     "@babel/preset-env": "^7.16.4",
+    "@vue-devtools/app-frontend": "^0.0.0",
     "@vue/compiler-sfc": "^3.3.4",
     "babel-loader": "^8.2.3",
     "css-loader": "^5.2.4",
@@ -20,6 +21,7 @@
     "stylus-loader": "^5.0.0",
     "terser-webpack-plugin": "^5.1.1",
     "vue-loader": "^17.2.2",
+    "vue-style-loader": "^4.1.0",
     "webpack": "^5.90.1",
     "webpack-merge": "^5.10.0"
   }

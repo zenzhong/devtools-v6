@@ -2,8 +2,7 @@ import type { ComponentDevtoolsOptions, ComponentInstance, ComponentTreeNode, In
 import type { App } from './app.js'
 import type { CustomInspectorNode, CustomInspectorState, TimelineEvent } from './api.js'
 
-// eslint-disable-next-line no-restricted-syntax
-export const enum Hooks {
+export enum Hooks {
   TRANSFORM_CALL = 'transformCall',
   GET_APP_RECORD_NAME = 'getAppRecordName',
   GET_APP_ROOT_INSTANCE = 'getAppRootInstance',

@@ -50,7 +50,7 @@ import { showScreenshot } from './timeline-screenshot'
 import { performanceMarkEnd, performanceMarkStart } from './perf'
 import { initOnPageConfig } from './page-config'
 import { addTimelineMarker, sendTimelineMarkers } from './timeline-marker'
-import { flashComponent } from './flash.js'
+import { flashComponent } from './flash'
 
 let ctx: BackendContext = target.__vdevtools_ctx ?? null
 let connected = target.__vdevtools_connected ?? false

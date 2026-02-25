@@ -31,7 +31,7 @@
     "start": "node bin.js",
     "dev:client": "webpack --watch",
     "dev:node": "webpack --watch --config webpack.node.config.js",
-    "build": "npm run build:client && npm run build:node",
+    "build": "pnpm run build:client && pnpm run build:node",
     "build:client": "rimraf ./build && cross-env NODE_ENV=production webpack",
     "build:node": "rimraf ./build-node && cross-env NODE_ENV=production webpack --config webpack.node.config.js"
   },
