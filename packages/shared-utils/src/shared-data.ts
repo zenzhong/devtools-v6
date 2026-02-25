@@ -33,6 +33,7 @@ const internalSharedData = {
   trackUpdates: true,
   flashUpdates: false,
   debugInfo: false,
+  searchComponentData: false,
   isBrowser,
 }
 
@@ -61,6 +62,7 @@ const persisted = [
   'trackUpdates',
   'flashUpdates',
   'debugInfo',
+  'searchComponentData',
 ]
 
 const storageVersion = '6.0.0-alpha.1'

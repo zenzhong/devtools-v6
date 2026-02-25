@@ -49,8 +49,33 @@ export class ComponentWalker {
    * @return {Vue|Array}
    */
   private async findQualifiedChildren(instance: any, depth: number): Promise<ComponentTreeNode[]> {
-    if (this.componentFilter.isQualified(instance) && !instance.type.devtools?.hide) {
-      return [await this.capture(instance, null, depth)]
+    const matchResult = this.componentFilter.getMatchResult(instance)
+    if (matchResult.matched && !instance.type.devtools?.hide) {
+      const node = await this.capture(instance, null, depth)
+      // 给直接匹配的节点添加 matched tag
+      if (this.componentFilter.filter) {
+        if (matchResult.matchSource === 'data' && matchResult.matchedFields?.length) {
+          const fieldsLabel = matchResult.matchedFields.length <= 2
+            ? matchResult.matchedFields.join(', ')
+            : `${matchResult.matchedFields.slice(0, 2).join(', ')} +${matchResult.matchedFields.length - 2}`
+          node.tags.push({
+            label: fieldsLabel,
+            textColor: 0xFFFFFF,
+            backgroundColor: 0xE67E22,
+            tooltip: `Matched fields: ${matchResult.matchedFields.join(', ')}`,
+          })
+        }
+        else {
+          node.tags.push({
+            label: 'matched',
+            textColor: 0xFFFFFF,
+            backgroundColor: 0x42B983,
+          })
+        }
+        // capture 已递归生成子树，遍历子节点给匹配的也打 tag
+        this.markMatchedChildren(node)
+      }
+      return [node]
     }
     else if (instance.subTree) {
       // TODO functional components
@@ -61,6 +86,43 @@ export class ComponentWalker {
     }
     else {
       return []
+    }
+  }
+
+  /**
+   * 递归遍历已 capture 的子树节点，对匹配搜索词的子组件打 tag
+   */
+  private markMatchedChildren(node: ComponentTreeNode): void {
+    if (!node.children || !node.children.length) {
+      return
+    }
+    for (const child of node.children) {
+      const instance = this.ctx.currentAppRecord.instanceMap.get(child.id)
+      if (instance) {
+        const childMatch = this.componentFilter.getMatchResult(instance)
+        if (childMatch.matched) {
+          if (childMatch.matchSource === 'data' && childMatch.matchedFields?.length) {
+            const fieldsLabel = childMatch.matchedFields.length <= 2
+              ? childMatch.matchedFields.join(', ')
+              : `${childMatch.matchedFields.slice(0, 2).join(', ')} +${childMatch.matchedFields.length - 2}`
+            child.tags.push({
+              label: fieldsLabel,
+              textColor: 0xFFFFFF,
+              backgroundColor: 0xE67E22,
+              tooltip: `Matched fields: ${childMatch.matchedFields.join(', ')}`,
+            })
+          }
+          else {
+            child.tags.push({
+              label: 'matched',
+              textColor: 0xFFFFFF,
+              backgroundColor: 0x42B983,
+            })
+          }
+        }
+      }
+      // 递归标记更深层的子组件
+      this.markMatchedChildren(child)
     }
   }
 

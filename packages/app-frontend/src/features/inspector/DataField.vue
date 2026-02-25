@@ -1,7 +1,7 @@
 <script lang="ts">
 /* eslint-disable vue/no-unused-refs */
 
-import { defineComponent, toRaw } from 'vue'
+import { defineComponent, isRef, toRaw } from 'vue'
 import {
   BridgeEvents,
   copyToClipboard,
@@ -31,6 +31,12 @@ export default defineComponent({
   mixins: [
     DataFieldEdit,
   ],
+
+  inject: {
+    stateSearchTerm: { default: () => ({ value: '' }) },
+    stateMatchedPaths: { default: () => ({ value: new Set() }) },
+    stateExpandPaths: { default: () => ({ value: new Set() }) },
+  },
 
   props: {
     field: {
@@ -229,6 +235,40 @@ export default defineComponent({
     customActions(): { icon: string, tooltip?: string }[] {
       return this.field.value?._custom?.actions ?? []
     },
+
+    isPathMatched(): boolean {
+      const raw = this.stateMatchedPaths
+      const paths: Set<string> = isRef(raw) ? raw.value : raw
+      return paths && paths.size > 0 && paths.has(this.path)
+    },
+
+    shouldAutoExpand(): boolean {
+      const raw = this.stateExpandPaths
+      const paths: Set<string> = isRef(raw) ? raw.value : raw
+      return paths && paths.size > 0 && paths.has(this.path)
+    },
+
+    activeSearchTerm(): string {
+      const raw = this.stateSearchTerm
+      return (isRef(raw) ? raw.value : raw) || ''
+    },
+
+    highlightedKey(): string {
+      const term = this.activeSearchTerm
+      const key = String(this.displayedKey)
+      if (!term || !this.isPathMatched) {
+        return ''
+      }
+      return this.highlightText(key, term)
+    },
+
+    highlightedFormattedValue(): string {
+      const term = this.activeSearchTerm
+      if (!term || !this.isPathMatched) {
+        return ''
+      }
+      return this.highlightHtml(this.formattedValue, term)
+    },
   },
 
   watch: {
@@ -243,11 +283,24 @@ export default defineComponent({
       },
       immediate: true,
     },
+    shouldAutoExpand: {
+      handler(value) {
+        if (value && this.isExpandableType) {
+          this.expanded = true
+        }
+      },
+      immediate: true,
+    },
   },
 
   created() {
     const value = this.field.value && this.field.value._custom ? this.field.value._custom.value : this.field.value
-    this.expanded = this.depth === 0 && this.field.key !== '$route' && (subFieldCount(value) < 12)
+    if (this.shouldAutoExpand && this.isExpandableType) {
+      this.expanded = true
+    }
+    else {
+      this.expanded = this.depth === 0 && this.field.key !== '$route' && (subFieldCount(value) < 12)
+    }
   },
 
   methods: {
@@ -323,6 +376,45 @@ export default defineComponent({
         actionIndex: index,
       })
     },
+
+    highlightText(text: string, term: string): string {
+      if (!term) {
+        return text
+      }
+      const lowerText = text.toLowerCase()
+      const lowerTerm = term.toLowerCase()
+      const idx = lowerText.indexOf(lowerTerm)
+      if (idx === -1) {
+        return text
+      }
+      const before = text.substring(0, idx)
+      const match = text.substring(idx, idx + term.length)
+      const after = text.substring(idx + term.length)
+      return `${this.escapeHtml(before)}<mark class="search-highlight">${this.escapeHtml(match)}</mark>${this.escapeHtml(after)}`
+    },
+
+    highlightHtml(html: string, term: string): string {
+      if (!term) {
+        return html
+      }
+      const lowerTerm = term.toLowerCase()
+      // Only highlight text content outside HTML tags
+      return html.replace(/>([^<]+)</g, (fullMatch, textContent) => {
+        const lowerText = textContent.toLowerCase()
+        const idx = lowerText.indexOf(lowerTerm)
+        if (idx === -1) {
+          return fullMatch
+        }
+        const before = textContent.substring(0, idx)
+        const match = textContent.substring(idx, idx + term.length)
+        const after = textContent.substring(idx + term.length)
+        return `>${before}<mark class="search-highlight">${match}</mark>${after}<`
+      })
+    },
+
+    escapeHtml(text: string): string {
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    },
   },
 
   renderError: null,
@@ -368,9 +460,9 @@ export default defineComponent({
           content: valueTooltip,
           html: true,
         }"
-        :class="{ abstract: fieldOptions.abstract }"
+        :class="{ abstract: fieldOptions.abstract, 'search-match': isPathMatched }"
         class="key text-purple-700 dark:text-purple-300"
-      >{{ displayedKey }}</span><span
+      ><template v-if="highlightedKey"><span v-html="highlightedKey" /></template><template v-else>{{ displayedKey }}</template></span><span
         v-if="!fieldOptions.abstract"
         class="colon"
       >:</span>
@@ -425,10 +517,10 @@ export default defineComponent({
             content: valueTooltip,
             html: true,
           }"
-          :class="valueClass"
+          :class="[...valueClass, { 'search-match': isPathMatched }]"
           class="value"
           @dblclick="openEdit()"
-          v-html="formattedValue"
+          v-html="highlightedFormattedValue || formattedValue"
         />
         <!-- eslint-enable vue/no-v-html -->
         <span class="actions">
@@ -801,4 +893,13 @@ export default defineComponent({
   :deep(.vue-ui-icon)
     width 16px
     height @width
+
+:deep(.search-highlight)
+  background-color #fff3cd
+  color #856404
+  border-radius 2px
+  padding 0 1px
+  .vue-ui-dark-mode &
+    background-color #664d03
+    color #ffc107
 </style>

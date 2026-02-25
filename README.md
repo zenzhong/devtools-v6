@@ -75,18 +75,47 @@ pnpm build
 pnpm build:watch
 ```
 
+## 编译链路
+
+项目中不同层的包采用不同的编译方式，理解这一点对于开发非常重要：
+
+### 前端层（直接从 src/ 编译）
+
+`app-frontend` 通过 webpack alias `@front` 直接指向 `src/` 目录，webpack 使用 `esbuild-loader` 和 `vue-loader` 直接处理 `.ts`/`.vue` 源码。修改 `app-frontend/src/` 下的文件后，`pnpm dev:chrome` 会自动检测变化并重新打包。
+
+### 后端层（需要先 tsc 编译到 lib/）
+
+`app-backend-*`、`shared-utils`、`app-backend-api` 等包的编译流程是**两步走**：
+
+```
+src/*.ts  ──(tsc 编译)──→  lib/*.js  ──(webpack 打包)──→  shell-chrome/build/*.js
+```
+
+webpack 通过 alias 和 `package.json` 的 `main` 字段解析到 `lib/` 目录：
+
+| 包 | webpack 解析路径 | 解析方式 |
+|---|---|---|
+| `app-frontend` | `src/` | webpack alias `@front` |
+| `app-backend-core` | `lib/` | webpack alias `@back` |
+| `shared-utils` | `lib/` | webpack alias |
+| `app-backend-api` | `lib/` | webpack alias |
+| `app-backend-vue2` | `lib/` | `package.json` main 字段 |
+| `app-backend-vue3` | `lib/` | `package.json` main 字段 |
+
+> **重要**：只运行 `pnpm dev:chrome` 时，webpack 只监视 `lib/` 中的文件。修改 backend 包的 `src/*.ts` 不会自动触发重新打包，必须先通过 `tsc` 编译到 `lib/`。
+
 ## 浏览器扩展开发
 
 ### Chrome 扩展开发
 
-#### 方式一：纯扩展开发（修改 shell-chrome 本身）
+#### 方式一：纯扩展开发（只修改 shell-chrome / app-frontend）
 
 ```bash
 # 启动 Chrome 扩展的 webpack watch 模式
 pnpm dev:chrome
 ```
 
-构建产物输出到 `packages/shell-chrome/build/` 目录。
+构建产物输出到 `packages/shell-chrome/build/` 目录。此方式适用于只修改 `shell-chrome` 自身或 `app-frontend`（前端面板 UI）的场景，因为 webpack 直接从 `app-frontend/src/` 读取源码。
 
 **加载扩展到 Chrome：**
 
@@ -96,7 +125,35 @@ pnpm dev:chrome
 4. 选择 `packages/shell-chrome` 目录
 5. 代码修改后 webpack 会自动重新编译，刷新目标页面即可生效（如修改了 devtools 面板页面，需关闭再重新打开 DevTools 面板）
 
-#### 方式二：前端面板 + 演示应用联调
+#### 方式二：修改 backend 包（app-backend-*、shared-utils 等）
+
+修改 `app-backend-vue2`、`app-backend-vue3`、`app-backend-core`、`shared-utils` 等包时，需要**同时运行两个终端**：
+
+```bash
+# 终端 1：监视所有 backend 包的 TypeScript 编译（src/ → lib/）
+pnpm build:watch
+
+# 终端 2：监视 webpack 打包（lib/ → shell-chrome/build/）
+pnpm dev:chrome
+```
+
+`build:watch` 会先执行一次全量 build，然后并行启动所有 backend 包的 `tsc -w`，实时将 `src/` 变更编译到 `lib/`，webpack 检测到 `lib/` 变化后自动重新打包。
+
+如果**不想启动 `build:watch`**，也可以手动单独编译修改的包：
+
+```bash
+# 例如修改了 app-backend-vue2
+cd packages/app-backend-vue2
+pnpm build
+
+# 如果 shared-utils 也有修改，也需要单独编译
+cd packages/shared-utils
+pnpm build
+
+# 然后回到 shell-chrome 重新打包（如果已有 dev:chrome 在跑，webpack 会自动检测）
+```
+
+#### 方式三：前端面板 + 演示应用联调
 
 适用于修改 DevTools 面板 UI（`app-frontend`）或后端逻辑（`app-backend-*`）时使用：
 
@@ -114,7 +171,7 @@ pnpm dev:vue2
 
 在浏览器中访问演示应用，打开浏览器 DevTools 即可看到 Vue 面板。
 
-#### 方式三：生产模式监听构建
+#### 方式四：生产模式监听构建
 
 ```bash
 pnpm dev:chrome:prod
@@ -195,11 +252,31 @@ pnpm dev:electron
 
 ## 常见问题
 
+### 修改了 backend 代码但扩展行为没变？
+
+**最常见原因**：只运行了 `pnpm dev:chrome`，但 backend 包（`app-backend-*`、`shared-utils`）的 `src/` 修改没有编译到 `lib/`。
+
+解决方法：
+```bash
+# 方案一：启动 tsc watch（推荐，一劳永逸）
+pnpm build:watch  # 在另一个终端
+
+# 方案二：手动编译修改的包
+cd packages/app-backend-vue2 && pnpm build
+cd packages/shared-utils && pnpm build
+```
+
+编译完成后还需要：
+1. 在 `chrome://extensions/` 点击扩展的刷新按钮
+2. 刷新被检查的目标页面
+3. 如修改了 DevTools 面板相关代码，还需关闭并重新打开 DevTools
+
 ### 修改代码后扩展没有更新？
 
 - 如修改了 `content_scripts`（hook/detector），需要在 `chrome://extensions/` 点击刷新按钮，然后刷新目标页面
 - 如修改了 `service-worker`，需要在扩展详情页点击 Service Worker 链接查看是否有错误
 - 如修改了 DevTools 面板（frontend），需要关闭并重新打开 DevTools
+- 如修改了 backend 包，确保已编译到 `lib/`（参见上一条）
 
 ### 构建报错？
 
@@ -209,7 +286,7 @@ pnpm dev:electron
 
 ```bash
 # 进入具体包目录
-cd packages/shell-chrome
+cd packages/app-backend-vue2
 pnpm build
 ```
 

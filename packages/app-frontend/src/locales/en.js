@@ -57,7 +57,7 @@ export default {
       tooltip: '[[{{keys.alt}}]] + [[S]] Select component in the page',
     },
     filter: {
-      tooltip: '[[{{keys.alt}}]] + [[F]] Filter components by name',
+      tooltip: '[[{{keys.alt}}]] + [[F]] Filter components by keyword',
     },
     refresh: {
       tooltip: '[[{{keys.ctrl}}]] + [[{{keys.alt}}]] + [[R]] Force refresh',

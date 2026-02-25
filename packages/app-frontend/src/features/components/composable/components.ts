@@ -7,7 +7,7 @@ import {
   BridgeSubscriptions,
   isChrome,
   openInEditor,
-  searchDeepInObject,
+  searchDeepInObjectWithPaths,
   setStorage,
   sortByKey,
 } from '@vue-devtools/shared-utils'
@@ -23,6 +23,7 @@ const treeFilter = ref('')
 export const selectedComponentId = ref<ComponentTreeNode['id'] | null>(null)
 export const selectedComponentData = ref<InspectedComponentData | null>(null)
 const selectedComponentStateFilter = ref('')
+const committedStateFilter = ref('')
 export const selectedComponentPendingId = ref<ComponentTreeNode['id'] | null>(null)
 let lastSelectedApp: AppRecord = null
 export const lastSelectedComponentId: Record<AppRecord['id'], ComponentTreeNode['id']> = {}
@@ -60,8 +61,16 @@ export function useComponents() {
   } = useComponentRequests()
   const { currentAppId } = useCurrentApp()
 
-  watch(treeFilter, () => {
+  // 搜索需手动点击按钮或按 Enter 触发
+  function searchComponentTree() {
     requestComponentTree()
+  }
+
+  // 当 filter 被清空时，自动恢复完整组件树
+  watch(treeFilter, (val) => {
+    if (!val) {
+      requestComponentTree()
+    }
   })
 
   watch(() => route.params.componentId, () => {
@@ -123,6 +132,7 @@ export function useComponents() {
     treeFilter,
     selectedComponentId: computed(() => selectedComponentId.value),
     requestComponentTree,
+    searchComponentTree,
     selectComponent,
     selectLastComponent,
     subscribeToSelectedData,
@@ -209,20 +219,63 @@ export function isComponentOpen(id: ComponentTreeNode['id']) {
 
 export function useSelectedComponent() {
   const data = computed(() => selectedComponentData.value)
-  const state = computed(() => selectedComponentData.value
-    ? groupBy(sortByKey(selectedComponentData.value.state.filter((el) => {
-      try {
-        return searchDeepInObject({
-          [el.key]: el.value,
-        }, selectedComponentStateFilter.value)
+
+  // 活跃搜索词：committedStateFilter 优先，否则用 treeFilter
+  const activeSearchTerm = computed(() => committedStateFilter.value || treeFilter.value || '')
+
+  // 收集所有匹配路径，同时过滤不匹配的顶层字段
+  const stateWithMatchInfo = computed(() => {
+    if (!selectedComponentData.value) {
+      return { filtered: [], matchedPaths: new Set<string>(), expandPaths: new Set<string>() }
+    }
+    const stateFilterVal = committedStateFilter.value
+    const searchTerm = activeSearchTerm.value
+    if (!searchTerm) {
+      return {
+        filtered: selectedComponentData.value.state,
+        matchedPaths: new Set<string>(),
+        expandPaths: new Set<string>(),
       }
-      catch (e) {
-        return {
-          [el.key]: e,
+    }
+    const filtered: typeof selectedComponentData.value.state = []
+    const matchedPaths = new Set<string>()
+    const expandPaths = new Set<string>()
+
+    for (const el of selectedComponentData.value.state) {
+      try {
+        const result = searchDeepInObjectWithPaths({ [el.key]: el.value }, searchTerm)
+        if (result.matched) {
+          filtered.push(el)
+          for (const p of result.paths) {
+            matchedPaths.add(p)
+            // 收集需要展开的父路径
+            const parts = p.split('.')
+            for (let i = 1; i < parts.length; i++) {
+              expandPaths.add(parts.slice(0, i).join('.'))
+            }
+          }
+        }
+        else if (!stateFilterVal) {
+          // treeFilter 模式下不过滤，只高亮匹配项
+          filtered.push(el)
         }
       }
-    })), 'type')
-    : ({}))
+      catch (e) {
+        filtered.push(el)
+      }
+    }
+    return { filtered, matchedPaths, expandPaths }
+  })
+
+  const state = computed(() => {
+    const { filtered } = stateWithMatchInfo.value
+    return filtered.length > 0
+      ? groupBy(sortByKey(filtered), 'type')
+      : ({})
+  })
+
+  const stateMatchedPaths = computed(() => stateWithMatchInfo.value.matchedPaths)
+  const stateExpandPaths = computed(() => stateWithMatchInfo.value.expandPaths)
 
   const fileIsPath = computed(() => data.value?.file && /[/\\]/.test(data.value.file))
 
@@ -263,15 +316,36 @@ export function useSelectedComponent() {
     })
   }
 
+  function commitStateFilter() {
+    committedStateFilter.value = selectedComponentStateFilter.value
+  }
+
+  function clearStateFilter() {
+    selectedComponentStateFilter.value = ''
+    committedStateFilter.value = ''
+  }
+
+  // 当输入框被手动清空时，自动恢复（重置 committedStateFilter）
+  watch(selectedComponentStateFilter, (val) => {
+    if (!val) {
+      committedStateFilter.value = ''
+    }
+  })
+
   return {
     data,
     state,
     stateFilter: selectedComponentStateFilter,
+    activeSearchTerm,
+    stateMatchedPaths,
+    stateExpandPaths,
     inspectDOM,
     fileIsPath,
     openFile,
     editState,
     scrollToComponent,
+    commitStateFilter,
+    clearStateFilter,
     selectedComponentId,
   }
 }

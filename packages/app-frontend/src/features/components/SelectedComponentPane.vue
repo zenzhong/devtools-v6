@@ -2,7 +2,7 @@
 import StateInspector from '@front/features/inspector/StateInspector.vue'
 import EmptyPane from '@front/features/layout/EmptyPane.vue'
 
-import { computed, defineComponent, ref, watch } from 'vue'
+import { computed, defineComponent, provide, ref, watch } from 'vue'
 import { SharedData, copyToClipboard, getComponentDisplayName } from '@vue-devtools/shared-utils'
 import { onKeyDown } from '@front/util/keyboard'
 import RenderCode from './RenderCode.vue'
@@ -18,6 +18,11 @@ export default defineComponent({
   setup() {
     const selectedComponent = useSelectedComponent()
     const displayName = computed(() => getComponentDisplayName(selectedComponent.data.value?.name ?? '', SharedData.componentNameStyle))
+
+    // Provide search info for DataField highlight and auto-expand
+    provide('stateSearchTerm', selectedComponent.activeSearchTerm)
+    provide('stateMatchedPaths', selectedComponent.stateMatchedPaths)
+    provide('stateExpandPaths', selectedComponent.stateExpandPaths)
 
     const showRenderCode = ref(false)
 
@@ -102,6 +107,22 @@ export default defineComponent({
         icon-left="search"
         placeholder="Filter state..."
         class="search flex-1 flat !min-w-0"
+        @keydown.enter="commitStateFilter"
+      />
+
+      <VueButton
+        v-tooltip="'Search state (Enter)'"
+        icon-left="search"
+        class="flat icon-button flex-none"
+        @click="commitStateFilter"
+      />
+
+      <VueButton
+        v-if="stateFilter"
+        v-tooltip="'Clear search'"
+        icon-left="clear"
+        class="flat icon-button flex-none"
+        @click="clearStateFilter"
       />
 
       <VueButton

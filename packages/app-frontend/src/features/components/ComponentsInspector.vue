@@ -18,6 +18,7 @@ export default defineComponent({
     const {
       rootInstances,
       requestComponentTree,
+      searchComponentTree,
       treeFilter,
       selectLastComponent,
       subscribeToSelectedData,
@@ -90,6 +91,7 @@ export default defineComponent({
       rootInstances,
       treeFilter,
       treeFilterInput,
+      searchComponentTree,
       pickingComponent,
       startPickingComponent,
       stopPickingComponent,
@@ -120,6 +122,14 @@ export default defineComponent({
               placeholder="Find components..."
               select-all
               class="search flat !min-w-0 flex-1"
+              @keyup.enter="searchComponentTree()"
+            />
+
+            <VueButton
+              v-tooltip="'Search'"
+              class="icon-button flat"
+              icon-left="search"
+              @click="searchComponentTree()"
             />
 
             <VueButton
@@ -217,6 +227,15 @@ export default defineComponent({
                     class="w-4 h-4 flex-none"
                   />
                   <span>Don't enable if you are sensitive to flashing</span>
+                </div>
+              </div>
+
+              <div class="space-y-1 px-3 py-2 text-sm">
+                <VueSwitch v-model="$shared.searchComponentData">
+                  Search component data
+                </VueSwitch>
+                <div class="flex items-center space-x-1 text-xs opacity-50">
+                  <span>Search props, data, setup state and computed</span>
                 </div>
               </div>
             </VueDropdown>

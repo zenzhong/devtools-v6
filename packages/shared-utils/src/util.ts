@@ -658,7 +658,7 @@ export function searchDeepInObject(obj, searchTerm) {
   return result
 }
 
-const SEARCH_MAX_DEPTH = 10
+const SEARCH_MAX_DEPTH = 50
 
 /**
  * Executes a search on each field of the provided object
@@ -759,6 +759,87 @@ function internalSearchCheck(searchTerm, key, value, seen, depth) {
  */
 function compare(value, searchTerm) {
   return (`${value}`).toLowerCase().includes(searchTerm)
+}
+
+/**
+ * Searches a key or value in the object, collecting all matched paths.
+ * @param {*} obj Search target
+ * @param {string} searchTerm Search string
+ * @returns {{ matched: boolean, paths: string[] }} matched paths (e.g. ['user.name', 'user.age'])
+ */
+export function searchDeepInObjectWithPaths(obj, searchTerm): { matched: boolean, paths: string[] } {
+  if (!searchTerm) {
+    return { matched: true, paths: [] }
+  }
+  const paths: string[] = []
+  const seen = new Set()
+  const term = searchTerm.toLowerCase()
+  const keys = Object.keys(obj)
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]
+    const value = obj[key]
+    collectMatchPaths(key, value, term, '', paths, seen, 0)
+  }
+  return { matched: paths.length > 0, paths }
+}
+
+const COLLECT_MAX_DEPTH = 50
+
+function collectMatchPaths(key: string | null, value: any, searchTerm: string, parentPath: string, paths: string[], seen: Set<any>, depth: number) {
+  if (depth > COLLECT_MAX_DEPTH) {
+    return
+  }
+
+  const currentPath = parentPath ? `${parentPath}.${key ?? ''}` : (key ?? '')
+
+  // Handle _custom type
+  let displayKey = key
+  let realValue = value
+  if (key === '_custom' && value && typeof value === 'object') {
+    displayKey = value.display
+    realValue = value.value
+  }
+
+  // Check special tokens
+  const tokenStr = specialTokenToString(realValue)
+  if (tokenStr) {
+    realValue = tokenStr
+  }
+
+  // Match key
+  if (displayKey && compare(displayKey, searchTerm)) {
+    paths.push(currentPath)
+  }
+
+  // Match primitive value
+  if (realValue == null || typeof realValue !== 'object') {
+    if (compare(realValue, searchTerm)) {
+      paths.push(currentPath)
+    }
+    return
+  }
+
+  // Prevent circular reference
+  if (seen.has(realValue)) {
+    return
+  }
+  seen.add(realValue)
+
+  // Recurse into arrays
+  if (Array.isArray(realValue)) {
+    for (let i = 0; i < realValue.length; i++) {
+      collectMatchPaths(String(i), realValue[i], searchTerm, currentPath, paths, seen, depth + 1)
+    }
+    return
+  }
+
+  // Recurse into objects
+  if (isPlainObject(realValue)) {
+    const objKeys = Object.keys(realValue)
+    for (let i = 0; i < objKeys.length; i++) {
+      collectMatchPaths(objKeys[i], realValue[objKeys[i]], searchTerm, currentPath, paths, seen, depth + 1)
+    }
+  }
 }
 
 export function sortByKey(state) {

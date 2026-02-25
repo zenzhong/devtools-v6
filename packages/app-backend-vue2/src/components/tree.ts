@@ -1,5 +1,5 @@
 import type { AppRecord, BackendContext, DevtoolsApi } from '@vue-devtools/app-backend-api'
-import { classify, kebabize } from '@vue-devtools/shared-utils'
+import { SharedData, classify, kebabize } from '@vue-devtools/shared-utils'
 import type { ComponentInstance, ComponentTreeNode } from '@vue/devtools-api'
 import { getRootElementsFromComponentInstance } from './el'
 import { applyPerfHooks } from './perf.js'
@@ -105,8 +105,33 @@ function findQualifiedChildrenFromList(instances: any[]): Promise<ComponentTreeN
  * This is ok because [].concat works in both cases.
  */
 async function findQualifiedChildren(instance): Promise<ComponentTreeNode[]> {
-  if (isQualified(instance)) {
-    return [await capture(instance)]
+  const matchResult = getMatchResult(instance)
+  if (matchResult.matched) {
+    const node = await capture(instance)
+    // 给直接匹配的节点添加 matched tag
+    if (filter && node) {
+      if (matchResult.matchSource === 'data' && matchResult.matchedFields?.length) {
+        const fieldsLabel = matchResult.matchedFields.length <= 2
+          ? matchResult.matchedFields.join(', ')
+          : `${matchResult.matchedFields.slice(0, 2).join(', ')} +${matchResult.matchedFields.length - 2}`
+        node.tags.push({
+          label: fieldsLabel,
+          textColor: 0xFFFFFF,
+          backgroundColor: 0xE67E22,
+          tooltip: `Matched fields: ${matchResult.matchedFields.join(', ')}`,
+        })
+      }
+      else {
+        node.tags.push({
+          label: 'matched',
+          textColor: 0xFFFFFF,
+          backgroundColor: 0x42B983,
+        })
+      }
+      // capture 已递归生成子树，遍历子节点给匹配的也打 tag
+      markMatchedChildren(node)
+    }
+    return [node]
   }
   else {
     let children = await findQualifiedChildrenFromList(instance.$children)
@@ -124,6 +149,43 @@ async function findQualifiedChildren(instance): Promise<ComponentTreeNode[]> {
 }
 
 /**
+ * 递归遍历已 capture 的子树节点，对匹配搜索词的子组件打 tag
+ */
+function markMatchedChildren(node: ComponentTreeNode): void {
+  if (!node.children || !node.children.length) {
+    return
+  }
+  for (const child of node.children) {
+    const instance = instanceMap.get(child.id) || appRecord.instanceMap.get(child.id)
+    if (instance) {
+      const childMatch = getMatchResult(instance)
+      if (childMatch.matched) {
+        if (childMatch.matchSource === 'data' && childMatch.matchedFields?.length) {
+          const fieldsLabel = childMatch.matchedFields.length <= 2
+            ? childMatch.matchedFields.join(', ')
+            : `${childMatch.matchedFields.slice(0, 2).join(', ')} +${childMatch.matchedFields.length - 2}`
+          child.tags.push({
+            label: fieldsLabel,
+            textColor: 0xFFFFFF,
+            backgroundColor: 0xE67E22,
+            tooltip: `Matched fields: ${childMatch.matchedFields.join(', ')}`,
+          })
+        }
+        else {
+          child.tags.push({
+            label: 'matched',
+            textColor: 0xFFFFFF,
+            backgroundColor: 0x42B983,
+          })
+        }
+      }
+    }
+    // 递归标记更深层的子组件
+    markMatchedChildren(child)
+  }
+}
+
+/**
  * Get children from a component instance.
  */
 function getInternalInstanceChildren(instance): any[] {
@@ -133,13 +195,218 @@ function getInternalInstanceChildren(instance): any[] {
   return []
 }
 
+const SEARCH_MAX_DEPTH = 50
+
+/**
+ * 检测值是否为 Vue 2 组件实例
+ */
+function isVue2Instance(obj: any): boolean {
+  if (obj == null || typeof obj !== 'object') {
+    return false
+  }
+  // Vue 2 组件实例的各种特征
+  return !!(obj._isVue || obj.__vue__)
+}
+
+/**
+ * 在 Vue 2 响应式数据中递归搜索
+ * 返回匹配到的路径字符串（如 'state.currentAudit.verify_flag'），未匹配返回 null
+ */
+function searchInObjectData(obj: any, searchTerm: string, seen: Set<any> = new Set(), depth = 0): string | null {
+  if (depth > SEARCH_MAX_DEPTH || obj == null) {
+    return null
+  }
+
+  if (typeof obj !== 'object') {
+    return String(obj).toLowerCase().includes(searchTerm) ? '' : null
+  }
+
+  if (seen.has(obj)) {
+    return null
+  }
+  seen.add(obj)
+
+  // 跳过 Vue 2 组件实例，避免穿透到子组件数据
+  if (isVue2Instance(obj)) {
+    return null
+  }
+
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const subPath = searchInObjectData(obj[i], searchTerm, seen, depth + 1)
+      if (subPath !== null) {
+        const prefix = `[${i}]`
+        return subPath ? `${prefix}.${subPath}` : prefix
+      }
+    }
+    return null
+  }
+
+  const keys = Object.keys(obj)
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]
+    // 匹配 key
+    if (key.toLowerCase().includes(searchTerm)) {
+      return key
+    }
+    // 递归匹配 value
+    try {
+      const subPath = searchInObjectData(obj[key], searchTerm, seen, depth + 1)
+      if (subPath !== null) {
+        return subPath ? `${key}.${subPath}` : key
+      }
+    }
+    catch {
+      // getter 可能抛异常
+    }
+  }
+  return null
+}
+
+interface MatchResult {
+  matched: boolean
+  matchSource?: string
+  matchedFields?: string[]
+}
+
+/**
+ * 检测值是否包含 Vue 实例（直接是实例或数组元素全是实例）
+ */
+function containsVueInstances(val: any): boolean {
+  if (isVue2Instance(val)) {
+    return true
+  }
+  if (Array.isArray(val) && val.length > 0 && val.every(item => isVue2Instance(item))) {
+    return true
+  }
+  return false
+}
+
+/**
+ * Get detailed match result for an instance.
+ */
+function getMatchResult(instance): MatchResult {
+  const name = getInstanceName(instance)
+  // 先匹配组件名称
+  if (
+    classify(name).toLowerCase().includes(filter)
+    || kebabize(name).toLowerCase().includes(filter)
+  ) {
+    return { matched: true, matchSource: 'name' }
+  }
+
+  // 名称不匹配时，根据开关决定是否搜索组件数据
+  if (!SharedData.searchComponentData) {
+    return { matched: false }
+  }
+  const matchedFields: string[] = []
+  try {
+    const props = instance._props
+    const data = instance._data
+    const setupState = instance._setupProxy || instance._setupState
+    if (props) {
+      for (const key of Object.keys(props)) {
+        try {
+          const val = props[key]
+          if (containsVueInstances(val)) {
+            continue
+          }
+          if (key.toLowerCase().includes(filter)) {
+            matchedFields.push(`$props.${key}`)
+          }
+          else {
+            const subPath = searchInObjectData(val, filter)
+            if (subPath !== null) {
+              matchedFields.push(subPath ? `$props.${key}.${subPath}` : `$props.${key}`)
+            }
+          }
+        }
+        catch {
+          // skip
+        }
+      }
+    }
+    if (data) {
+      for (const key of Object.keys(data)) {
+        try {
+          const val = data[key]
+          if (containsVueInstances(val)) {
+            continue
+          }
+          if (key.toLowerCase().includes(filter)) {
+            matchedFields.push(`$data.${key}`)
+          }
+          else {
+            const subPath = searchInObjectData(val, filter)
+            if (subPath !== null) {
+              matchedFields.push(subPath ? `$data.${key}.${subPath}` : `$data.${key}`)
+            }
+          }
+        }
+        catch {
+          // skip
+        }
+      }
+    }
+    if (setupState) {
+      for (const key of Object.keys(setupState)) {
+        try {
+          const val = setupState[key]
+          if (containsVueInstances(val)) {
+            continue
+          }
+          if (key.toLowerCase().includes(filter)) {
+            matchedFields.push(`$setup.${key}`)
+          }
+          else {
+            const subPath = searchInObjectData(val, filter)
+            if (subPath !== null) {
+              matchedFields.push(subPath ? `$setup.${key}.${subPath}` : `$setup.${key}`)
+            }
+          }
+        }
+        catch {
+          // skip
+        }
+      }
+    }
+    // 搜索 computed 属性的值
+    const computedDefs = instance.$options && instance.$options.computed
+    if (computedDefs) {
+      for (const key in computedDefs) {
+        if (key.toLowerCase().includes(filter)) {
+          matchedFields.push(`$computed.${key}`)
+          continue
+        }
+        try {
+          const val = instance[key]
+          if (val != null) {
+            const subPath = searchInObjectData(val, filter)
+            if (subPath !== null) {
+              matchedFields.push(subPath ? `$computed.${key}.${subPath}` : `$computed.${key}`)
+            }
+          }
+        }
+        catch {
+          // computed getter 可能抛异常
+        }
+      }
+    }
+  }
+  catch {
+    // 安全访问
+  }
+  if (matchedFields.length > 0) {
+    return { matched: true, matchSource: 'data', matchedFields }
+  }
+  return { matched: false }
+}
+
 /**
  * Check if an instance is qualified.
  */
 function isQualified(instance): boolean {
-  const name = getInstanceName(instance)
-  return classify(name).toLowerCase().includes(filter)
-    || kebabize(name).toLowerCase().includes(filter)
+  return getMatchResult(instance).matched
 }
 
 function flatten<T>(items: any[]): T[] {

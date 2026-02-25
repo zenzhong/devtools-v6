@@ -24,7 +24,7 @@ function createPanelIfHasVue() {
       clearInterval(checkVueInterval)
       created = true
       chrome.devtools.panels.create(
-        'Vue (Legacy)',
+        'Vue',
         'icons/128.png',
         'devtools.html',
         (panel) => {
