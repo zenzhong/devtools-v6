@@ -33,7 +33,7 @@ const internalSharedData = {
   trackUpdates: true,
   flashUpdates: false,
   debugInfo: false,
-  searchComponentData: false,
+  searchComponentData: true,
   isBrowser,
 }
 
