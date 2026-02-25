@@ -22,14 +22,15 @@ export function scan() {
         currentFragment = instance
       }
 
-      // respect Vue.config.devtools option
+      // Force enable devtools for production mode Vue 2 apps
       let baseVue = instance.constructor
       while (baseVue.super) {
         baseVue = baseVue.super
       }
-      if (baseVue.config && baseVue.config.devtools) {
-        rootInstances.push(instance)
+      if (baseVue.config) {
+        baseVue.config.devtools = true
       }
+      rootInstances.push(instance)
 
       return true
     }

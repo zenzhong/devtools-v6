@@ -332,6 +332,144 @@ export function installHook(target, isIframe = false) {
     },
   })
 
+  // Force enable devtools in production mode
+  hook.enabled = true
+
+  // ===== Production mode support =====
+  // In production builds, Vue tree-shakes all devtools integration code,
+  // so the hook never receives app:init / init events.
+  // We use MutationObserver to watch DOM changes and proactively detect
+  // Vue 2 (__vue__) and Vue 3 (__vue_app__) instances on mounted elements.
+  // Ref: https://github.com/nicepkg/nice-devtools/issues/1
+
+  const registeredApps = new WeakSet()
+  let registeredVue2 = false
+
+  function registerVue3App(app) {
+    if (registeredApps.has(app)) {
+      return
+    }
+    if (!Array.isArray(hook.apps)) {
+      return
+    }
+    if (hook.apps.some(a => a.app === app)) {
+      registeredApps.add(app)
+      return
+    }
+    const version = app.version
+    if (!version) {
+      return
+    }
+    registeredApps.add(app)
+    hook.emit('app:init', app, version, {
+      Fragment: void 0,
+      Text: void 0,
+      Comment: void 0,
+      Static: void 0,
+    })
+    // Intercept unmount to notify devtools
+    const unmount = app.unmount.bind(app)
+    app.unmount = function () {
+      hook.emit('app:unmount', app)
+      unmount()
+    }
+  }
+
+  function registerVue2App(instance) {
+    let Vue = instance.constructor
+    while (Vue.super) {
+      Vue = Vue.super
+    }
+    Vue.config.devtools = true
+    if (!registeredVue2) {
+      registeredVue2 = true
+      hook.emit('init', Vue)
+    }
+  }
+
+  function checkElement(el) {
+    // Vue 3: el.__vue_app__ is set on the mount container
+    if (el.__vue_app__) {
+      registerVue3App(el.__vue_app__)
+    }
+    // Vue 2: el.__vue__ is set on component root elements
+    if (el.__vue__ && typeof el.__vue__ === 'object' && el.__vue__._isVue && typeof el.__vue__.constructor === 'function') {
+      const instance = el.__vue__
+      const root = instance.$parent ? instance.$root : instance
+      registerVue2App(root)
+    }
+  }
+
+  let appFound = false
+
+  function scanAllElements() {
+    if (typeof document === 'undefined') {
+      return
+    }
+    const all = document.querySelectorAll('*')
+    for (let i = 0; i < all.length; i++) {
+      checkElement(all[i])
+    }
+    if (hook.apps.length > 0 || hook.Vue) {
+      appFound = true
+    }
+  }
+
+  let observerStarted = false
+
+  function observePage() {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+      return
+    }
+
+    // Initial full scan
+    scanAllElements()
+
+    // Only create one observer
+    if (observerStarted) {
+      return
+    }
+    observerStarted = true
+
+    // On every DOM mutation, do a full scan of all elements.
+    // This is necessary because __vue_app__ / __vue__ are JS properties
+    // (not DOM attributes), so we can't detect them via attribute mutation.
+    // Vue mounting causes child DOM mutations which we use as a trigger
+    // to re-scan and discover the newly set JS properties.
+    const observer = new MutationObserver(() => {
+      scanAllElements()
+    })
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      subtree: true,
+      childList: true,
+    })
+  }
+
+  // Start observing: try immediately, on DOMContentLoaded, and on idle
+  if (typeof document !== 'undefined') {
+    observePage()
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => observePage())
+    }
+    if (typeof target.requestIdleCallback === 'function') {
+      target.requestIdleCallback(() => observePage())
+    }
+
+    // Fallback: poll periodically in case MutationObserver misses the app
+    // (e.g., Vue mounts asynchronously without visible DOM mutations).
+    // Stops once an app is found or after 30 attempts (~30s).
+    let pollCount = 0
+    const pollTimer = setInterval(() => {
+      scanAllElements()
+      pollCount++
+      if (appFound || pollCount >= 30) {
+        clearInterval(pollTimer)
+      }
+    }, 1000)
+  }
+
   // Handle apps initialized before hook injection
   if (target.__VUE_DEVTOOLS_HOOK_REPLAY__) {
     try {

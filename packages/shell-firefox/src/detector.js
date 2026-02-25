@@ -16,15 +16,8 @@ function detect(win) {
     const nuxtDetected = !!(window.__NUXT__ || window.$nuxt)
 
     if (nuxtDetected) {
-      let Vue
-
-      if (window.$nuxt) {
-        Vue = window.$nuxt.$root && window.$nuxt.$root.constructor
-      }
-
       win.postMessage({
-        devtoolsEnabled: (/* Vue 2 */ Vue && Vue.config.devtools)
-        || (/* Vue 3.2.14+ */ window.__VUE_DEVTOOLS_GLOBAL_HOOK__ && window.__VUE_DEVTOOLS_GLOBAL_HOOK__.enabled),
+        devtoolsEnabled: true,
         vueDetected: true,
         nuxtDetected: true,
       }, '*')
@@ -36,7 +29,7 @@ function detect(win) {
     const vueDetected = !!(window.__VUE__)
     if (vueDetected) {
       win.postMessage({
-        devtoolsEnabled: /* Vue 3.2.14+ */ window.__VUE_DEVTOOLS_GLOBAL_HOOK__ && window.__VUE_DEVTOOLS_GLOBAL_HOOK__.enabled,
+        devtoolsEnabled: true,
         vueDetected: true,
       }, '*')
 
@@ -47,18 +40,14 @@ function detect(win) {
     const all = document.querySelectorAll('*')
     let el
     for (let i = 0; i < all.length; i++) {
-      if (all[i].__vue__) {
+      if (all[i].__vue__ || all[i].__vue_app__) {
         el = all[i]
         break
       }
     }
     if (el) {
-      let Vue = Object.getPrototypeOf(el.__vue__).constructor
-      while (Vue.super) {
-        Vue = Vue.super
-      }
       win.postMessage({
-        devtoolsEnabled: Vue.config.devtools,
+        devtoolsEnabled: true,
         vueDetected: true,
       }, '*')
       return

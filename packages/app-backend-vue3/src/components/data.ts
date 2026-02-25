@@ -177,8 +177,8 @@ function processState(instance) {
 }
 
 function processSetupState(instance) {
-  const raw = instance.devtoolsRawSetupState
-  const combinedSetupState = (Object.keys(instance.setupState).length
+  const raw = instance.devtoolsRawSetupState || {}
+  const combinedSetupState = (Object.keys(instance.setupState || {}).length
     ? instance.setupState
     : instance.exposed
   ) || {}
@@ -213,6 +213,24 @@ function processSetupState(instance) {
           ...objectType ? { objectType } : {},
           ...raw ? { raw } : {},
           editable: isState && !info.readonly,
+        }
+      } else {
+        // Production mode fallback: devtoolsRawSetupState is not available.
+        // Try to infer type from the value itself.
+        const rawValue = returnError(() => combinedSetupState[key])
+        if (rawValue && typeof rawValue === 'object') {
+          const info = getSetupStateInfo(rawValue)
+          const objectType = info.computed ? 'Computed' : info.ref ? 'Ref' : info.reactive ? 'Reactive' : null
+          const isState = info.ref || info.computed || info.reactive
+
+          if (objectType) {
+            isOther = false
+          }
+
+          result = {
+            ...objectType ? { objectType } : {},
+            editable: isState && !info.readonly,
+          }
         }
       }
 
@@ -421,7 +439,7 @@ export function editState({ componentInstance, path, state, type }: HookPayloads
     target = componentInstance.props
   }
   else if (componentInstance.devtoolsRawSetupState && Object.keys(componentInstance.devtoolsRawSetupState).includes(path[0])) {
-    // Setup
+    // Setup (development mode - has raw setup state)
     target = componentInstance.devtoolsRawSetupState
 
     const currentValue = stateEditor.get(componentInstance.devtoolsRawSetupState, path)
@@ -431,6 +449,10 @@ export function editState({ componentInstance, path, state, type }: HookPayloads
         return
       }
     }
+  }
+  else if (componentInstance.setupState && Object.keys(componentInstance.setupState).includes(path[0])) {
+    // Setup (production mode fallback - use setupState directly)
+    target = componentInstance.setupState
   }
   else {
     target = componentInstance.proxy

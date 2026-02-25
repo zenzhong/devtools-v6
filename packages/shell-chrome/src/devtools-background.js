@@ -16,7 +16,7 @@ function createPanelIfHasVue() {
     return
   }
   chrome.devtools.inspectedWindow.eval(
-    '!!(window.__VUE_DEVTOOLS_GLOBAL_HOOK__ && (window.__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue || window.__VUE_DEVTOOLS_GLOBAL_HOOK__.apps.length))',
+    '!!(window.__VUE_DEVTOOLS_GLOBAL_HOOK__ && (window.__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue || window.__VUE_DEVTOOLS_GLOBAL_HOOK__.apps.length || window.__VUE__ || document.querySelector("[__vue_app__]") || (function(){ var all = document.querySelectorAll("*"); for(var i=0;i<all.length;i++){ if(all[i].__vue__ || all[i].__vue_app__) return true; } return false; })()))',
     (hasVue) => {
       if (!hasVue || created) {
         return
