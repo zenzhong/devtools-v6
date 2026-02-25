@@ -249,14 +249,42 @@ pnpm dev:electron
 
 详细使用说明见 [packages/shell-electron/README.md](./packages/shell-electron/README.md)。
 
+## 打包扩展
+
+将扩展打包为 zip 文件，可直接加载到浏览器或分发给他人。
+
+```bash
+# 一键打包 Chrome + Firefox（build 所有包 → webpack 生产构建 → zip）
+pnpm pack
+
+# 只打包 Chrome
+pnpm pack:chrome
+```
+
+产物输出到 `dist/` 目录：
+- `dist/devtools-chrome.zip` — Chrome 扩展
+- `dist/devtools-firefox.zip` — Firefox 扩展
+
+**安装 zip 到 Chrome：**
+1. 解压 `devtools-chrome.zip` 到任意目录
+2. 打开 `chrome://extensions/`，开启「开发者模式」
+3. 点击「加载已解压的扩展程序」，选择解压后的目录
+
+**安装 zip 到 Firefox：**
+1. 打开 `about:debugging#/runtime/this-firefox`
+2. 点击「临时载入附加组件」
+3. 选择 `devtools-firefox.zip` 或其中的 `manifest.json`
+
 ## 其他命令
 
 | 命令 | 说明 |
 |------|------|
+| `pnpm pack` | 一键打包 Chrome + Firefox 扩展 zip |
+| `pnpm pack:chrome` | 只打包 Chrome 扩展 zip |
+| `pnpm zip` | 仅 zip 打包（需先手动 build） |
 | `pnpm lint` | ESLint 代码检查 |
 | `pnpm test` | 运行 lint + 类型检查 |
 | `pnpm test:e2e` | 运行 E2E 测试（Cypress） |
-| `pnpm zip` | 打包扩展 zip |
 | `pnpm sign:firefox` | 签名 Firefox 扩展 |
 | `pnpm docs:dev` | 本地开发文档站点 |
 

@@ -31,6 +31,8 @@
     "lint": "eslint .",
     "run:firefox": "web-ext run -s packages/shell-firefox -a dist -i src -u http://localhost:8090/target.html",
     "zip": "node ./extension-zips.js",
+    "pack": "pnpm build && cd packages/shell-chrome && pnpm build && cd ../shell-firefox && pnpm build && cd ../.. && pnpm zip",
+    "pack:chrome": "pnpm build && cd packages/shell-chrome && pnpm build && cd ../.. && node ./extension-zips.js",
     "sign:firefox": "node ./sign-firefox.js",
     "release": "npm run test && node release.js && npm run build && npm run zip && npm run pub",
     "release:beta": "cross-env RELEASE_CHANNEL=beta npm run release && npm run sign:firefox",

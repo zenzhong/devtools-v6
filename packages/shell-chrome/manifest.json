@@ -1,7 +1,7 @@
 {
   "name": "Vue.js devtools (Pro)",
   "version": "6.6.6",
-  "version_name": "6.6.7",
+  "version_name": "6.6.6",
   "description": "Enhanced Vue DevTools: works on production sites, supports deep search by component data (props, data, setup state, computed).",
   "manifest_version": 3,
   "icons": {
