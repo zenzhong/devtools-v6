@@ -8,7 +8,17 @@
 
 ## 项目简介
 
-Vue DevTools v6 是 Vue.js 官方开发者工具，支持 Vue 1/2/3，提供组件树查看、状态检查、事件追踪、路由/Vuex 调试等功能。项目采用 **pnpm workspaces + Lerna** 的 Monorepo 架构，构建系统基于 **Webpack 5**。
+Vue DevTools v6 Pro 是基于 Vue.js 官方开发者工具的增强版本，支持 Vue 1/2/3，在原有组件树查看、状态检查、事件追踪、路由/Vuex 调试等功能基础上，新增两大核心特性：
+
+### 1. 生产环境支持
+增强了 Vue 实例检测逻辑，可在生产构建的网站上使用 DevTools。即使页面没有显式暴露 `__VUE_DEVTOOLS_GLOBAL_HOOK__`，也能通过 DOM 遍历检测 `__vue__` / `__vue_app__` 属性，自动识别 Vue 应用。
+
+### 2. 组件数据深度搜索
+- 支持按 props、data、setup state、computed 字段内容搜索组件（不仅限于组件名称）
+- 搜索命中时，tag 标签显示完整数据路径（如 `$data.store.state.currentUser.name`）
+- 设置菜单中提供 "Search component data" 开关，默认关闭以保持性能，按需开启
+
+项目采用 **pnpm workspaces + Lerna** 的 Monorepo 架构，构建系统基于 **Webpack 5**。
 
 ## 技术栈
 

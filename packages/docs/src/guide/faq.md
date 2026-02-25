@@ -15,9 +15,7 @@ Fixing "Download the Vue Devtools for a better development experience" console m
 Here are some troubleshooting steps to help you if you don't the Vue devtools in your browser:
 
 - Check if you have the extension [installed](./installation.md).
-- If you are on a live website, there is a good chance it's using a production build of Vue.
-  - Use a non-minified, non-`prod` version of Vue on CDN
-  - Set the `__VUE_PROD_DEVTOOLS__` environment variable for Vue 3 when using a bundler like Webpack ([more info](https://github.com/vuejs/core/tree/main/packages/vue#bundler-build-feature-flags)).
+- This Pro edition has enhanced production detection, but some heavily optimized sites may still not be detected.
 - Try closing the devtools pane, refreshing the page and opening the devtools pane again.
 - Try restarting the browser or the computer.
 - If you have multiple versions of the Vue devtools installed, it's recommended to disable/remove the others.
@@ -47,3 +45,16 @@ This feature needs some setup in your project to work correctly. See [here](./op
 ## Something is broken in the new devtools
 
 See [installing the previous version](./installation.md#legacy) for more information.
+
+## How to search component data (props, data, setup state, computed)?
+
+By default, the component tree search only matches component names for better performance. To enable deep data search:
+
+1. Click the **⋮** (more options) button in the component tree toolbar
+2. Turn on the **Search component data** switch
+3. Now your search will also match props, data, setup state, and computed field values
+4. Matched components will show the full data path in a tag (e.g. `$data.store.state.user.name`)
+
+::: tip
+Keep this option off when you don't need it — searching through all component data can be slower on large applications.
+:::

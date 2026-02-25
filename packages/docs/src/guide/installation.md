@@ -5,6 +5,13 @@ import InstallButton from '../components/InstallButton.vue'
 
 # Installation
 
+::: tip Vue DevTools Pro
+This is the **Pro** edition of Vue DevTools v6 with two major enhancements:
+
+1. **Production support**: Works on production Vue sites — enhanced detection can find Vue instances even without `__VUE_DEVTOOLS_GLOBAL_HOOK__`
+2. **Component data search**: Search components by props, data, setup state and computed fields, with full match path display (e.g. `$data.store.state.user.name`)
+:::
+
 ::: tip Previous version
 If you want to install the previous version of the devtools (v5), see [here](#legacy).
 :::
