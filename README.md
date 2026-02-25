@@ -1,4 +1,4 @@
-# Vue DevTools v6
+# Vue DevTools Pro
 
 ![screenshot](./media/screenshot-shadow.png)
 
